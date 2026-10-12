@@ -23,6 +23,17 @@ test('builds a dialogue from a draggable command and a saved character', async (
   await page.getByRole('button', { name: 'Заменить образ' }).click();
   await expect(page.locator('.actor-type').last()).toHaveText('Мальчик');
 
+  await page.locator('[data-edit-avatar]').last().dblclick();
+  await page.locator('#custom-avatar-input').setInputFiles({
+    name: 'my-character.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="#6d63e8"/><circle cx="30" cy="24" r="14" fill="#fff"/></svg>'),
+  });
+  await expect(page.locator('.custom-avatar-preview img')).toBeVisible();
+  await page.getByRole('button', { name: 'Заменить образ' }).click();
+  await expect(page.locator('[data-edit-avatar]').last().locator('img.custom-avatar-image')).toBeVisible();
+  await expect(page.locator('.actor-type').last()).toHaveText('Своя картинка');
+
   await page.locator('[data-edit-name]').last().dblclick();
   await page.locator('.actor-name-input').fill('Рекс');
   await page.locator('.actor-name-input').press('Enter');
