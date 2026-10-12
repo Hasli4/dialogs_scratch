@@ -27,7 +27,9 @@ const defaultState = () => ({
   rows: 6,
   cells: {},
   isPreviewing: false,
-  active: null,
+  activeKeys: [],
+  dialog: null,
+  editingNameId: null,
 });
 
 let state = loadState();
@@ -37,7 +39,7 @@ let timerId = null;
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem('scratch-dialogue-v1'));
-    return saved?.columns?.length ? { ...defaultState(), ...saved, isPreviewing: false, active: null } : defaultState();
+    return saved?.columns?.length ? { ...defaultState(), ...saved, isPreviewing: false, activeKeys: [] } : defaultState();
   } catch {
     return defaultState();
   }
@@ -80,19 +82,22 @@ function paletteCard(type) {
 }
 
 function actorModal() {
+  const isReplacing = state.dialog?.mode === 'replace';
+  const target = isReplacing ? state.columns.find((column) => column.id === state.dialog.targetId) : null;
+  const selectedAvatar = target?.avatar ?? 'dog';
   return `<dialog id="actor-dialog" class="actor-dialog">
     <form method="dialog" class="dialog-panel">
       <button class="dialog-close" aria-label="Закрыть" value="cancel">×</button>
-      <p class="eyebrow">НОВАЯ КОЛОНКА</p>
-      <h2>Кто будет говорить?</h2>
-      <p class="dialog-text">Выберите сохранённый образ, дайте ему имя — и добавьте дорожку диалога.</p>
+      <p class="eyebrow">${isReplacing ? 'ОБРАЗ ПЕРСОНАЖА' : 'НОВАЯ КОЛОНКА'}</p>
+      <h2>${isReplacing ? 'Выберите новый образ' : 'Кто будет говорить?'}</h2>
+      <p class="dialog-text">${isReplacing ? 'Дважды кликните по картинке персонажа в плане, чтобы сменить её.' : 'Выберите сохранённый образ, дайте ему имя — и добавьте дорожку диалога.'}</p>
       <div class="avatar-choices">${Object.entries(AVATARS).map(([key, avatar]) => `<label class="avatar-choice">
-        <input type="radio" name="avatar" value="${key}" ${key === 'dog' ? 'checked' : ''}>
+        <input type="radio" name="avatar" value="${key}" ${key === selectedAvatar ? 'checked' : ''}>
         <span class="avatar-art" style="--avatar-main:${avatar.colors[0]};--avatar-soft:${avatar.colors[1]}">${avatar.art}</span>
         <span>${avatar.title}</span>
       </label>`).join('')}</div>
-      <label class="name-label">Имя персонажа<input id="new-actor-name" maxlength="18" value="${escapeHTML(`Герой ${state.columns.length + 1}`)}" /></label>
-      <div class="dialog-actions"><button value="cancel" class="button ghost">Отмена</button><button id="confirm-actor" value="default" class="button primary">Добавить персонажа</button></div>
+      ${isReplacing ? '' : `<label class="name-label">Имя персонажа<input id="new-actor-name" maxlength="18" value="${escapeHTML(`Герой ${state.columns.length + 1}`)}" /></label>`}
+      <div class="dialog-actions"><button value="cancel" class="button ghost">Отмена</button><button id="confirm-actor" value="default" class="button primary">${isReplacing ? 'Заменить образ' : 'Добавить персонажа'}</button></div>
     </form>
   </dialog>`;
 }
@@ -101,9 +106,12 @@ function render() {
   const gridStyle = `--columns: ${state.columns.length};`;
   const headerColumns = state.columns.map((column) => {
     const avatar = AVATARS[column.avatar];
+    const nameControl = state.editingNameId === column.id
+      ? `<input class="actor-name-input" value="${escapeHTML(column.name)}" maxlength="18" aria-label="Новое имя персонажа" data-name-id="${column.id}">`
+      : `<button class="actor-name" type="button" data-edit-name="${column.id}" title="Дважды кликните, чтобы изменить имя">${escapeHTML(column.name)}</button>`;
     return `<div class="actor-header" data-column-id="${column.id}">
-      <div class="actor-avatar" style="--avatar-main:${avatar.colors[0]};--avatar-soft:${avatar.colors[1]}">${avatar.art}</div>
-      <div class="actor-name-wrap"><input class="actor-name" value="${escapeHTML(column.name)}" maxlength="18" aria-label="Имя персонажа: ${escapeHTML(column.name)}" data-name-id="${column.id}"><span class="actor-type">${avatar.title}</span></div>
+      <div class="actor-avatar" role="button" tabindex="0" data-edit-avatar="${column.id}" aria-label="Сменить образ ${escapeHTML(column.name)}" title="Дважды кликните, чтобы сменить образ" style="--avatar-main:${avatar.colors[0]};--avatar-soft:${avatar.colors[1]}">${avatar.art}</div>
+      <div class="actor-name-wrap">${nameControl}<span class="actor-type">${avatar.title}</span></div>
       <button class="remove-actor" type="button" data-remove-actor="${column.id}" aria-label="Удалить персонажа" title="Удалить персонажа">×</button>
     </div>`;
   }).join('');
@@ -112,7 +120,7 @@ function render() {
     const cells = state.columns.map((column) => {
       const key = cellKey(row, column.id);
       const command = state.cells[key];
-      return `<div class="timeline-cell ${command ? 'filled' : ''} ${state.active?.key === key ? 'is-active' : ''}" data-row="${row}" data-column="${column.id}">
+      return `<div class="timeline-cell ${command ? 'filled' : ''} ${state.activeKeys.includes(key) ? 'is-active' : ''}" data-row="${row}" data-column="${column.id}">
         ${command ? commandCard(command) : `<span class="drop-hint">Перетащите команду</span>`}
       </div>`;
     }).join('');
@@ -148,6 +156,8 @@ function render() {
       <footer class="bottom-bar"><span class="bottom-label">КОНСТРУКТОР ДИАЛОГОВ</span><span>Команда начинается с зелёного флажка</span><span class="footer-help">? Нужна помощь</span></footer>
     </main>${actorModal()}`;
   bindEvents();
+  const nameEditor = document.querySelector('.actor-name-input');
+  if (nameEditor) requestAnimationFrame(() => { nameEditor.focus(); nameEditor.select(); });
 }
 
 function pluralCommands(number) {
@@ -195,9 +205,27 @@ function bindEvents() {
   document.querySelectorAll('.delete-command').forEach((button) => button.addEventListener('click', () => {
     const cell = button.closest('.timeline-cell'); delete state.cells[cellKey(cell.dataset.row, cell.dataset.column)]; persist(); render();
   }));
-  document.querySelectorAll('.actor-name').forEach((input) => input.addEventListener('input', () => {
-    state.columns.find((column) => column.id === input.dataset.nameId).name = input.value || 'Без имени'; persist();
-  }));
+  document.querySelectorAll('[data-edit-name]').forEach((button) => {
+    button.addEventListener('dblclick', () => { state.editingNameId = button.dataset.editName; render(); });
+    button.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); state.editingNameId = button.dataset.editName; render(); }
+    });
+  });
+  document.querySelectorAll('.actor-name-input').forEach((input) => {
+    const saveName = () => {
+      const column = state.columns.find((item) => item.id === input.dataset.nameId);
+      column.name = input.value.trim() || 'Без имени';
+      state.editingNameId = null; persist(); render();
+    };
+    input.addEventListener('blur', saveName);
+    input.addEventListener('keydown', (event) => { if (event.key === 'Enter') input.blur(); });
+  });
+  document.querySelectorAll('[data-edit-avatar]').forEach((avatar) => {
+    avatar.addEventListener('dblclick', () => openActorDialog('replace', avatar.dataset.editAvatar));
+    avatar.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openActorDialog('replace', avatar.dataset.editAvatar); }
+    });
+  });
   document.querySelectorAll('[data-remove-actor]').forEach((button) => button.addEventListener('click', () => {
     if (state.columns.length === 1) return;
     const id = button.dataset.removeActor;
@@ -206,12 +234,20 @@ function bindEvents() {
     persist(); render();
   }));
   document.querySelector('#add-row').addEventListener('click', () => { state.rows += 1; persist(); render(); });
-  document.querySelector('#add-actor').addEventListener('click', () => document.querySelector('#actor-dialog').showModal());
+  document.querySelector('#add-actor').addEventListener('click', () => openActorDialog('create'));
   document.querySelector('#confirm-actor').addEventListener('click', (event) => {
     event.preventDefault(); const dialog = document.querySelector('#actor-dialog');
     const avatar = dialog.querySelector('input[name="avatar"]:checked').value;
-    const name = dialog.querySelector('#new-actor-name').value.trim() || AVATARS[avatar].title;
-    state.columns.push({ id: makeId(), name, avatar }); persist(); dialog.close(); render();
+    if (state.dialog?.mode === 'replace') {
+      state.columns.find((column) => column.id === state.dialog.targetId).avatar = avatar;
+    } else {
+      const name = dialog.querySelector('#new-actor-name').value.trim() || AVATARS[avatar].title;
+      state.columns.push({ id: makeId(), name, avatar });
+    }
+    state.dialog = null; persist(); dialog.close(); render();
+  });
+  document.querySelector('#actor-dialog').addEventListener('close', () => {
+    if (state.dialog) { state.dialog = null; render(); }
   });
   document.querySelector('#save-project').addEventListener('click', (event) => {
     persist(); const button = event.currentTarget; button.innerHTML = 'Сохранено <span>✓</span>'; button.classList.add('saved-flash'); setTimeout(() => button.classList.remove('saved-flash'), 900);
@@ -222,21 +258,31 @@ function bindEvents() {
   document.querySelector('#play-dialogue').addEventListener('click', playDialogue);
 }
 
+function openActorDialog(mode, targetId = null) {
+  state.dialog = { mode, targetId };
+  render();
+  document.querySelector('#actor-dialog').showModal();
+}
+
+function commandDuration(command) {
+  return command.type === 'wait' ? Math.min(Number(command.seconds) * 1000, 6000) : 1800;
+}
+
 function playDialogue() {
-  if (timerId) { clearTimeout(timerId); timerId = null; state.active = null; render(); return; }
-  const steps = [];
-  for (let row = 0; row < state.rows; row += 1) for (const column of state.columns) {
-    const key = cellKey(row, column.id); if (state.cells[key]) steps.push({ key, command: state.cells[key] });
-  }
-  if (!steps.length) { alert('Добавьте хотя бы одну команду на дорожку.'); return; }
+  if (timerId) { clearTimeout(timerId); timerId = null; state.activeKeys = []; render(); return; }
+  const rows = Array.from({ length: state.rows }, (_, row) => state.columns.map((column) => {
+    const key = cellKey(row, column.id);
+    return state.cells[key] ? { key, command: state.cells[key] } : null;
+  }).filter(Boolean)).filter((row) => row.length);
+  if (!rows.length) { alert('Добавьте хотя бы одну команду на дорожку.'); return; }
   let index = 0;
-  const advance = () => {
-    if (index >= steps.length) { timerId = null; state.active = null; render(); return; }
-    const step = steps[index++]; state.active = step; render();
-    const milliseconds = step.command.type === 'wait' ? Math.min(Number(step.command.seconds) * 1000, 6000) : 1800;
-    timerId = setTimeout(advance, milliseconds);
+  const runRow = () => {
+    if (index >= rows.length) { timerId = null; state.activeKeys = []; render(); return; }
+    const currentRow = rows[index++];
+    state.activeKeys = currentRow.map((step) => step.key); render();
+    timerId = setTimeout(runRow, Math.max(...currentRow.map((step) => commandDuration(step.command))));
   };
-  advance();
+  runRow();
 }
 
 render();
