@@ -46,9 +46,15 @@ function loadState() {
 }
 
 function persist() {
-  localStorage.setItem('scratch-dialogue-v1', JSON.stringify({
-    columns: state.columns, rows: state.rows, cells: state.cells,
-  }));
+  try {
+    localStorage.setItem('scratch-dialogue-v1', JSON.stringify({
+      columns: state.columns, rows: state.rows, cells: state.cells,
+    }));
+    return true;
+  } catch {
+    alert('Не удалось сохранить изображение: выберите файл поменьше.');
+    return false;
+  }
 }
 
 function cellKey(row, columnId) { return `${row}:${columnId}`; }
@@ -85,17 +91,27 @@ function actorModal() {
   const isReplacing = state.dialog?.mode === 'replace';
   const target = isReplacing ? state.columns.find((column) => column.id === state.dialog.targetId) : null;
   const selectedAvatar = target?.avatar ?? 'dog';
+  const customImage = state.dialog?.pendingImage || target?.customAvatar;
+  const hasCustomImage = Boolean(customImage);
   return `<dialog id="actor-dialog" class="actor-dialog">
     <form method="dialog" class="dialog-panel">
       <button class="dialog-close" aria-label="Закрыть" value="cancel">×</button>
       <p class="eyebrow">${isReplacing ? 'ОБРАЗ ПЕРСОНАЖА' : 'НОВАЯ КОЛОНКА'}</p>
       <h2>${isReplacing ? 'Выберите новый образ' : 'Кто будет говорить?'}</h2>
-      <p class="dialog-text">${isReplacing ? 'Дважды кликните по картинке персонажа в плане, чтобы сменить её.' : 'Выберите сохранённый образ, дайте ему имя — и добавьте дорожку диалога.'}</p>
+      <p class="dialog-text">${isReplacing ? 'Выберите готовый образ или загрузите свою картинку с компьютера.' : 'Выберите сохранённый образ, дайте ему имя — и добавьте дорожку диалога.'}</p>
       <div class="avatar-choices">${Object.entries(AVATARS).map(([key, avatar]) => `<label class="avatar-choice">
-        <input type="radio" name="avatar" value="${key}" ${key === selectedAvatar ? 'checked' : ''}>
+        <input type="radio" name="avatar" value="${key}" ${!hasCustomImage && key === selectedAvatar ? 'checked' : ''}>
         <span class="avatar-art" style="--avatar-main:${avatar.colors[0]};--avatar-soft:${avatar.colors[1]}">${avatar.art}</span>
         <span>${avatar.title}</span>
-      </label>`).join('')}</div>
+      </label>`).join('')}${isReplacing ? `<div class="avatar-choice custom-avatar-choice">
+        <input id="custom-avatar-choice" type="radio" name="avatar" value="custom" ${hasCustomImage ? 'checked' : ''}>
+        <label class="custom-avatar-trigger" for="custom-avatar-choice">
+          <span class="avatar-art custom-avatar-preview">${hasCustomImage ? `<img src="${escapeHTML(customImage)}" alt="Предпросмотр своей картинки">` : '<span class="upload-plus">＋</span>'}</span>
+          <span class="custom-avatar-copy"><strong>Своя картинка</strong><small>Сохранится только на этом устройстве</small></span>
+        </label>
+        <button id="choose-custom-avatar" class="choose-custom-avatar" type="button">Выбрать файл</button>
+        <input id="custom-avatar-input" class="custom-avatar-input" type="file" accept="image/*" aria-label="Выбрать свою картинку">
+      </div>` : ''}</div>
       ${isReplacing ? '' : `<label class="name-label">Имя персонажа<input id="new-actor-name" maxlength="18" value="${escapeHTML(`Герой ${state.columns.length + 1}`)}" /></label>`}
       <div class="dialog-actions"><button value="cancel" class="button ghost">Отмена</button><button id="confirm-actor" value="default" class="button primary">${isReplacing ? 'Заменить образ' : 'Добавить персонажа'}</button></div>
     </form>
@@ -106,12 +122,16 @@ function render() {
   const gridStyle = `--columns: ${state.columns.length};`;
   const headerColumns = state.columns.map((column) => {
     const avatar = AVATARS[column.avatar];
+    const hasCustomAvatar = Boolean(column.customAvatar);
+    const avatarTitle = hasCustomAvatar ? 'Своя картинка' : avatar.title;
+    const avatarArt = hasCustomAvatar ? `<img class="custom-avatar-image" src="${escapeHTML(column.customAvatar)}" alt="">` : avatar.art;
+    const avatarColors = hasCustomAvatar ? ['#5d5ce2', '#dcddff'] : avatar.colors;
     const nameControl = state.editingNameId === column.id
       ? `<input class="actor-name-input" value="${escapeHTML(column.name)}" maxlength="18" aria-label="Новое имя персонажа" data-name-id="${column.id}">`
       : `<button class="actor-name" type="button" data-edit-name="${column.id}" title="Дважды кликните, чтобы изменить имя">${escapeHTML(column.name)}</button>`;
     return `<div class="actor-header" data-column-id="${column.id}">
-      <div class="actor-avatar" role="button" tabindex="0" data-edit-avatar="${column.id}" aria-label="Сменить образ ${escapeHTML(column.name)}" title="Дважды кликните, чтобы сменить образ" style="--avatar-main:${avatar.colors[0]};--avatar-soft:${avatar.colors[1]}">${avatar.art}</div>
-      <div class="actor-name-wrap">${nameControl}<span class="actor-type">${avatar.title}</span></div>
+      <div class="actor-avatar" role="button" tabindex="0" data-edit-avatar="${column.id}" aria-label="Сменить образ ${escapeHTML(column.name)}" title="Дважды кликните, чтобы сменить образ" style="--avatar-main:${avatarColors[0]};--avatar-soft:${avatarColors[1]}">${avatarArt}</div>
+      <div class="actor-name-wrap">${nameControl}<span class="actor-type">${avatarTitle}</span></div>
       <button class="remove-actor" type="button" data-remove-actor="${column.id}" aria-label="Удалить персонажа" title="Удалить персонажа">×</button>
     </div>`;
   }).join('');
@@ -235,11 +255,34 @@ function bindEvents() {
   }));
   document.querySelector('#add-row').addEventListener('click', () => { state.rows += 1; persist(); render(); });
   document.querySelector('#add-actor').addEventListener('click', () => openActorDialog('create'));
+  document.querySelector('#choose-custom-avatar')?.addEventListener('click', () => document.querySelector('#custom-avatar-input').click());
+  document.querySelector('#custom-avatar-input')?.addEventListener('change', async (event) => {
+    const [file] = event.target.files;
+    if (!file) return;
+    try {
+      const image = await prepareAvatarForStorage(file);
+      state.dialog.pendingImage = image;
+      document.querySelector('#custom-avatar-choice').checked = true;
+      const preview = document.querySelector('.custom-avatar-preview');
+      preview.innerHTML = `<img src="${escapeHTML(image)}" alt="Предпросмотр своей картинки">`;
+    } catch (error) {
+      alert(error.message || 'Не удалось открыть эту картинку.');
+      event.target.value = '';
+    }
+  });
   document.querySelector('#confirm-actor').addEventListener('click', (event) => {
     event.preventDefault(); const dialog = document.querySelector('#actor-dialog');
     const avatar = dialog.querySelector('input[name="avatar"]:checked').value;
     if (state.dialog?.mode === 'replace') {
-      state.columns.find((column) => column.id === state.dialog.targetId).avatar = avatar;
+      const column = state.columns.find((item) => item.id === state.dialog.targetId);
+      if (avatar === 'custom') {
+        const customImage = state.dialog.pendingImage || column.customAvatar;
+        if (!customImage) { alert('Сначала выберите картинку с компьютера.'); return; }
+        column.customAvatar = customImage;
+      } else {
+        column.avatar = avatar;
+        column.customAvatar = null;
+      }
     } else {
       const name = dialog.querySelector('#new-actor-name').value.trim() || AVATARS[avatar].title;
       state.columns.push({ id: makeId(), name, avatar });
@@ -262,6 +305,32 @@ function openActorDialog(mode, targetId = null) {
   state.dialog = { mode, targetId };
   render();
   document.querySelector('#actor-dialog').showModal();
+}
+
+function prepareAvatarForStorage(file) {
+  if (!file.type.startsWith('image/')) return Promise.reject(new Error('Выберите файл с изображением.'));
+  if (file.size > 12 * 1024 * 1024) return Promise.reject(new Error('Картинка слишком большая. Выберите файл до 12 МБ.'));
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл.'));
+    reader.onload = () => {
+      const source = new Image();
+      source.onerror = () => reject(new Error('Браузер не смог открыть эту картинку.'));
+      source.onload = () => {
+        const maxSide = 320;
+        const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(source.width * scale));
+        canvas.height = Math.max(1, Math.round(source.height * scale));
+        canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+        const optimized = canvas.toDataURL('image/webp', 0.86);
+        if (optimized.length > 1_700_000) reject(new Error('Картинка всё ещё слишком большая. Выберите другую.'));
+        else resolve(optimized);
+      };
+      source.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function commandDuration(command) {
