@@ -65,7 +65,9 @@ button { cursor: pointer; }
 .actor-name, .actor-name-input { display: block; width: 105px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: #313149; padding: 0 0 2px; font-family: Nunito, sans-serif; font-weight: 900; font-size: 16px; outline: none; text-align: left; }
 .actor-name { cursor: pointer; }
 .actor-name:hover, .actor-name:focus, .actor-name-input:focus { border-bottom-color: #7e7be5; }
-.actor-type { color: #9a9baa; font-size: 10px; }
+.actor-type, .actor-type-input { display: block; width: 105px; min-height: 16px; padding: 0; border: 0; border-bottom: 1px dashed transparent; color: #9a9baa; background: transparent; font-size: 10px; line-height: 1.4; outline: none; text-align: left; }
+.actor-type { cursor: pointer; }
+.actor-type:hover, .actor-type:focus, .actor-type-input:focus { border-bottom-color: #7e7be5; }
 .remove-actor { opacity: 0; position: absolute; top: 2px; right: 5px; border: 0; width: 20px; height: 20px; border-radius: 50%; color: #9798a8; background: #f1f2f6; transition: .15s; }
 .actor-header:hover .remove-actor { opacity: 1; }
 .remove-actor:hover { background: #ffe8ec; color: #dc5f79; }
