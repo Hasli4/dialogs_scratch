@@ -34,6 +34,11 @@ test('builds a dialogue from a draggable command and a saved character', async (
   await expect(page.locator('[data-edit-avatar]').last().locator('img.custom-avatar-image')).toBeVisible();
   await expect(page.locator('.actor-type').last()).toHaveText('Своя картинка');
 
+  await page.locator('[data-edit-type]').last().dblclick();
+  await page.locator('.actor-type-input').fill('Робот');
+  await page.locator('.actor-type-input').press('Enter');
+  await expect(page.locator('[data-edit-type]').last()).toHaveText('Робот');
+
   await page.locator('[data-edit-name]').last().dblclick();
   await page.locator('.actor-name-input').fill('Рекс');
   await page.locator('.actor-name-input').press('Enter');
