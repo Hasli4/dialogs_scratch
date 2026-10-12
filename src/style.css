@@ -57,11 +57,13 @@ button { cursor: pointer; }
 .flag { color: #58bd71; font-size: 25px; transform: rotate(-8deg); }
 .actor-grid { display: grid; grid-template-columns: repeat(var(--columns), minmax(190px, 1fr)); gap: 14px; padding-bottom: 17px; border-bottom: 1px solid #eceef4; }
 .actor-header { min-width: 0; position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 89px; }
-.actor-avatar { width: 69px; height: 69px; flex: 0 0 69px; overflow: hidden; border-radius: 23px; background: linear-gradient(145deg,var(--avatar-soft),#fff); border: 3px solid #fff; box-shadow: 0 5px 15px color-mix(in srgb, var(--avatar-main) 20%, transparent); }
+.actor-avatar { width: 69px; height: 69px; flex: 0 0 69px; overflow: hidden; border-radius: 23px; background: linear-gradient(145deg,var(--avatar-soft),#fff); border: 3px solid #fff; box-shadow: 0 5px 15px color-mix(in srgb, var(--avatar-main) 20%, transparent); cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.actor-avatar:hover, .actor-avatar:focus-visible { transform: translateY(-2px); outline: 0; box-shadow: 0 7px 18px color-mix(in srgb, var(--avatar-main) 38%, transparent); }
 .actor-avatar svg { width: 100%; height: 100%; display: block; }
 .actor-name-wrap { min-width: 0; }
-.actor-name { display: block; width: 105px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: #313149; padding: 0 0 2px; font-family: Nunito, sans-serif; font-weight: 900; font-size: 16px; outline: none; }
-.actor-name:hover, .actor-name:focus { border-bottom-color: #b9b8dc; }
+.actor-name, .actor-name-input { display: block; width: 105px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: #313149; padding: 0 0 2px; font-family: Nunito, sans-serif; font-weight: 900; font-size: 16px; outline: none; text-align: left; }
+.actor-name { cursor: pointer; }
+.actor-name:hover, .actor-name:focus, .actor-name-input:focus { border-bottom-color: #7e7be5; }
 .actor-type { color: #9a9baa; font-size: 10px; }
 .remove-actor { opacity: 0; position: absolute; top: 2px; right: 5px; border: 0; width: 20px; height: 20px; border-radius: 50%; color: #9798a8; background: #f1f2f6; transition: .15s; }
 .actor-header:hover .remove-actor { opacity: 1; }
