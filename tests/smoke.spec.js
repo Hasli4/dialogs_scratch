@@ -15,6 +15,8 @@ test('builds a dialogue from a draggable command and a saved character', async (
   await page.locator('[data-resize-wait]').click();
   await expect(page.locator('.command-card.wait')).toHaveAttribute('data-span', '2');
   await expect(page.locator('.seconds-input')).toHaveValue('3');
+  await expect(page.locator('.seconds-input')).toHaveCSS('width', '64px');
+  await expect(page.locator('.wait-stretch > span')).toHaveCount(0);
   await expect.poll(async () => (await page.locator('.command-card.wait').boundingBox()).height).toBeGreaterThan(100);
   await page.getByRole('button', { name: /Просмотреть/ }).click();
   await expect(page.locator('.timeline-cell.is-active')).toHaveCount(2);

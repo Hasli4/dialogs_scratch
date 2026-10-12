@@ -75,7 +75,7 @@ function commandCard(command, compact = false) {
   const span = Math.max(1, Number(command.span) || 1);
   const content = command.type === 'say'
     ? `<span class="command-icon">${speechIcon()}</span><span class="command-copy"><span class="command-label">говорить</span><textarea class="command-input phrase-input" rows="1" aria-label="Текст реплики" placeholder="Напишите фразу">${escapeHTML(command.text || '')}</textarea><span class="say-duration"><span>длительность</span><input class="command-input say-duration-input" value="${escapeHTML(command.seconds ?? 2)}" type="number" min="0.1" step="0.5" aria-label="Секунды разговора" /><span>сек.</span></span></span>`
-    : `<span class="command-icon">${waitIcon()}</span><span class="command-copy"><span class="command-label">ждать</span><span class="wait-value"><input class="command-input seconds-input" value="${escapeHTML(command.seconds ?? 2)}" type="number" min="0.1" step="0.5" aria-label="Секунды ожидания" /><span>сек.</span></span><span class="wait-stretch"><span>${span} ${pluralSteps(span)}</span><button class="resize-wait-handle" type="button" data-resize-wait aria-label="Растянуть ожидание" title="Тяните вверх или вниз, либо кликните: каждый шаг добавляет секунду">↕</button></span></span>`;
+    : `<span class="command-icon">${waitIcon()}</span><span class="command-copy"><span class="command-label">ждать</span><span class="wait-value"><input class="command-input seconds-input" value="${escapeHTML(command.seconds ?? 2)}" type="number" min="0.1" step="0.5" aria-label="Секунды ожидания" /><span>сек.</span></span><span class="wait-stretch"><button class="resize-wait-handle" type="button" data-resize-wait aria-label="Растянуть ожидание" title="Тяните вверх или вниз, либо кликните: каждый шаг добавляет секунду">↕</button></span></span>`;
   const waitMeta = command.type === 'wait' ? ` data-span="${span}" style="--row-span:${span}"` : '';
   return `<article class="${classes}" draggable="true" data-command-id="${command.id}"${waitMeta}>${content}<button class="delete-command" type="button" title="Удалить команду" aria-label="Удалить команду">×</button></article>`;
 }
@@ -194,13 +194,6 @@ function pluralCommands(number) {
   if (n >= 11 && n <= 14) return 'команд';
   const last = n % 10;
   return last === 1 ? 'команда' : last >= 2 && last <= 4 ? 'команды' : 'команд';
-}
-
-function pluralSteps(number) {
-  const n = number % 100;
-  if (n >= 11 && n <= 14) return 'шагов';
-  const last = n % 10;
-  return last === 1 ? 'шаг' : last >= 2 && last <= 4 ? 'шага' : 'шагов';
 }
 
 function findCoveringWait(row, columnId) {
