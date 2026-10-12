@@ -30,6 +30,7 @@ const defaultState = () => ({
   activeKeys: [],
   dialog: null,
   editingNameId: null,
+  editingTypeId: null,
 });
 
 let state = loadState();
@@ -124,14 +125,18 @@ function render() {
     const avatar = AVATARS[column.avatar];
     const hasCustomAvatar = Boolean(column.customAvatar);
     const avatarTitle = hasCustomAvatar ? 'Своя картинка' : avatar.title;
+    const actorType = column.role ?? avatarTitle;
     const avatarArt = hasCustomAvatar ? `<img class="custom-avatar-image" src="${escapeHTML(column.customAvatar)}" alt="">` : avatar.art;
     const avatarColors = hasCustomAvatar ? ['#5d5ce2', '#dcddff'] : avatar.colors;
     const nameControl = state.editingNameId === column.id
       ? `<input class="actor-name-input" value="${escapeHTML(column.name)}" maxlength="18" aria-label="Новое имя персонажа" data-name-id="${column.id}">`
       : `<button class="actor-name" type="button" data-edit-name="${column.id}" title="Дважды кликните, чтобы изменить имя">${escapeHTML(column.name)}</button>`;
+    const typeControl = state.editingTypeId === column.id
+      ? `<input class="actor-type-input" value="${escapeHTML(actorType)}" maxlength="24" aria-label="Новая подпись персонажа" data-type-id="${column.id}">`
+      : `<button class="actor-type" type="button" data-edit-type="${column.id}" title="Дважды кликните, чтобы изменить подпись">${escapeHTML(actorType)}</button>`;
     return `<div class="actor-header" data-column-id="${column.id}">
       <div class="actor-avatar" role="button" tabindex="0" data-edit-avatar="${column.id}" aria-label="Сменить образ ${escapeHTML(column.name)}" title="Дважды кликните, чтобы сменить образ" style="--avatar-main:${avatarColors[0]};--avatar-soft:${avatarColors[1]}">${avatarArt}</div>
-      <div class="actor-name-wrap">${nameControl}<span class="actor-type">${avatarTitle}</span></div>
+      <div class="actor-name-wrap">${nameControl}${typeControl}</div>
       <button class="remove-actor" type="button" data-remove-actor="${column.id}" aria-label="Удалить персонажа" title="Удалить персонажа">×</button>
     </div>`;
   }).join('');
@@ -176,8 +181,8 @@ function render() {
       <footer class="bottom-bar"><span class="bottom-label">КОНСТРУКТОР ДИАЛОГОВ</span><span>Команда начинается с зелёного флажка</span><span class="footer-help">? Нужна помощь</span></footer>
     </main>${actorModal()}`;
   bindEvents();
-  const nameEditor = document.querySelector('.actor-name-input');
-  if (nameEditor) requestAnimationFrame(() => { nameEditor.focus(); nameEditor.select(); });
+  const inlineEditor = document.querySelector('.actor-name-input, .actor-type-input');
+  if (inlineEditor) requestAnimationFrame(() => { inlineEditor.focus(); inlineEditor.select(); });
 }
 
 function pluralCommands(number) {
@@ -238,6 +243,23 @@ function bindEvents() {
       state.editingNameId = null; persist(); render();
     };
     input.addEventListener('blur', saveName);
+    input.addEventListener('keydown', (event) => { if (event.key === 'Enter') input.blur(); });
+  });
+  document.querySelectorAll('[data-edit-type]').forEach((button) => {
+    button.addEventListener('dblclick', () => { state.editingTypeId = button.dataset.editType; render(); });
+    button.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); state.editingTypeId = button.dataset.editType; render(); }
+    });
+  });
+  document.querySelectorAll('.actor-type-input').forEach((input) => {
+    const saveType = () => {
+      const column = state.columns.find((item) => item.id === input.dataset.typeId);
+      const value = input.value.trim();
+      if (value) column.role = value;
+      else delete column.role;
+      state.editingTypeId = null; persist(); render();
+    };
+    input.addEventListener('blur', saveType);
     input.addEventListener('keydown', (event) => { if (event.key === 'Enter') input.blur(); });
   });
   document.querySelectorAll('[data-edit-avatar]').forEach((avatar) => {
